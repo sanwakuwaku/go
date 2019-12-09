@@ -16,6 +16,13 @@ func main() {
 	for _, link := range visit(nil, doc) {
 		fmt.Println(link)
 	}
+
+	elements := make(map[string]int)
+	elements = countElements(elements, doc)
+	fmt.Printf("------ number per element ------\n")
+	for key, value := range elements {
+		fmt.Printf("[%s]=%d\n", key, value)
+	}
 }
 
 // visitは、n内で見つかったリンクを一つ一つlinksへ追加し、その結果を返します。
@@ -41,4 +48,20 @@ func visit(links []string, n *html.Node) []string {
 	// }
 
 	return links
+}
+
+func countElements(elements map[string]int, n *html.Node) map[string]int {
+	if n.Type == html.ElementNode {
+		elements[n.Data]++
+	}
+
+	if n.FirstChild != nil {
+		elements = countElements(elements, n.FirstChild)
+	}
+
+	if n.NextSibling != nil {
+		elements = countElements(elements, n.NextSibling)
+	}
+
+	return elements
 }
