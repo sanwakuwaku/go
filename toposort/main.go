@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 )
 
 var prereqs = map[string][]string{
@@ -21,6 +22,7 @@ var prereqs = map[string][]string{
 	"networks":              {"operating systems"},
 	"operating systems":     {"data structures", "computer organization"},
 	"programming languages": {"data structures", "computer organization"},
+	"linear algebra":        {"calculus"}, // 循環を発生させる為に入れた
 }
 
 func main() {
@@ -40,6 +42,13 @@ func topoSort(m map[string][]string) []string {
 				seen[key] = true
 
 				for _, v := range value {
+					for _, w := range m[v] {
+						if w == key {
+							// 循環を報告し終了する
+							log.Fatalf("error: circulation [%s: %v]\n", v, m[v])
+						}
+					}
+
 					visitAll(map[string][]string{v: m[v]})
 				}
 
