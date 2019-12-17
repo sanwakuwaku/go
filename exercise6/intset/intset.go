@@ -12,12 +12,12 @@ type IntSet struct {
 const intLen = 32 << (^uint(0) >> 63)
 
 func (s *IntSet) Has(x int) bool {
-	word, bit := x/64, uint(x%64)
+	word, bit := x/intLen, uint(x%intLen)
 	return word < len(s.words) && s.words[word]&(1<<bit) != 0
 }
 
 func (s *IntSet) Add(x int) {
-	word, bit := x/64, uint(x%64)
+	word, bit := x/intLen, uint(x%intLen)
 	for word >= len(s.words) {
 		s.words = append(s.words, 0)
 	}
@@ -41,12 +41,12 @@ func (s *IntSet) String() string {
 		if word == 0 {
 			continue
 		}
-		for j := 0; j < 64; j++ {
+		for j := 0; j < intLen; j++ {
 			if word&(1<<uint(j)) != 0 {
 				if buf.Len() > len("{") {
 					buf.WriteByte(' ')
 				}
-				fmt.Fprintf(&buf, "%d", 64*i+j)
+				fmt.Fprintf(&buf, "%d", intLen*i+j)
 			}
 		}
 	}
@@ -58,7 +58,7 @@ func (s *IntSet) String() string {
 func (s *IntSet) Len() int {
 	count := 0
 	for _, word := range s.words {
-		for i := 0; i < 64; i++ {
+		for i := 0; i < intLen; i++ {
 			if (word>>i)&1 == 1 {
 				count++
 			}
@@ -69,7 +69,7 @@ func (s *IntSet) Len() int {
 
 // セットからxを取り除きます
 func (s *IntSet) Remove(x int) {
-	word, bit := x/64, uint(x%64)
+	word, bit := x/intLen, uint(x%intLen)
 	if word >= len(s.words) {
 		return
 	}
