@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"html/template"
+	"log"
+	"net/http"
 	"os"
 	"sort"
 	"text/tabwriter"
@@ -14,6 +17,12 @@ type Track struct {
 	Album  string
 	Year   int
 	Length time.Duration
+}
+
+// テンプレート用
+type TrackViewData struct {
+	Tracks  []*Track
+	PrevKey string
 }
 
 var tracks = []*Track{
@@ -45,6 +54,28 @@ func printTracks(tracks []*Track) {
 	tw.Flush() // calculate column widths and print table
 }
 
+var trackList = template.Must(template.New("tracklist").Parse(`
+<h1> tracklist </h1>
+<table>
+<tr style='text-align: left'>
+	<th><a href='http://localhost:8000/?sort=title&prev={{.PrevKey}}'>Title</a></th>
+	<th><a href='http://localhost:8000/?sort=artist&prev={{.PrevKey}}'>Artist</a></th>
+	<th><a href='http://localhost:8000/?sort=album&prev={{.PrevKey}}'>Album</a></th>
+	<th><a href='http://localhost:8000/?sort=year&prev={{.PrevKey}}'>Year</a></th>
+	<th><a href='http://localhost:8000/?sort=length&prev={{.PrevKey}}'>Length</a></th>
+</tr>
+{{range .Tracks}}
+<tr>
+	<td>{{.Title}}</td>
+	<td>{{.Artist}}</td>
+	<td>{{.Album}}</td>
+	<td>{{.Year}}</td>
+	<td>{{.Length}}</td>
+</tr>
+{{end}}
+</table>
+`))
+
 type byYear []*Track
 
 func (x byYear) Len() int           { return len(x) }
@@ -56,6 +87,18 @@ type byArtist []*Track
 func (x byArtist) Len() int           { return len(x) }
 func (x byArtist) Less(i, j int) bool { return x[i].Artist < x[j].Artist }
 func (x byArtist) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
+
+type byAlbum []*Track
+
+func (x byAlbum) Len() int           { return len(x) }
+func (x byAlbum) Less(i, j int) bool { return x[i].Album < x[j].Album }
+func (x byAlbum) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
+
+type byTitle []*Track
+
+func (x byTitle) Len() int           { return len(x) }
+func (x byTitle) Less(i, j int) bool { return x[i].Title < x[j].Title }
+func (x byTitle) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 
 // 多段ソート用の構造体
 type mlSort struct {
@@ -81,6 +124,41 @@ func (x mlSort) Swap(i, j int) {
 }
 
 func main() {
+	//printTracksForStdout()
+	http.HandleFunc("/", httpHandler)
+	log.Fatal(http.ListenAndServe("localhost:8000", nil))
+}
+
+func httpHandler(w http.ResponseWriter, r *http.Request) {
+	value := r.URL.Query().Get("sort")
+	var sortKey sort.Interface
+	if value != "" {
+		switch value {
+		case "title":
+			sortKey = byTitle(tracks)
+		case "artist":
+			sortKey = byArtist(tracks)
+		case "album":
+			sortKey = byAlbum(tracks)
+		case "year":
+			sortKey = byYear(tracks)
+		case "length":
+		default:
+			sortKey = nil
+		}
+
+		if sortKey != nil {
+			sort.Sort(mlSort{tracks, sortKey, nil})
+		}
+	}
+
+	data := TrackViewData{tracks, value}
+	if err := trackList.Execute(w, data); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func printTracksForStdout() {
 	printTracks(tracks)
 
 	//sort.Sort(mlSort{tracks, byYear(tracks), nil})
