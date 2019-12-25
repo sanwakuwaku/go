@@ -2,10 +2,27 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
 )
+
+var itemList = template.Must(template.New("itemlist").Parse(`
+<h1>item list</h1>
+<table>
+<tr style='text-align: left'>
+  <th>name</th>
+  <th>price</th>
+</tr>
+{{range $key, $val := .}}
+<tr>
+  <td>{{$key}}</td>
+  <td>{{$val}}</td>
+</tr>
+{{end}}
+</table>
+`))
 
 func main() {
 	db := database{"shoes": 50, "socks": 5}
@@ -24,8 +41,9 @@ func (d dollars) String() string { return fmt.Sprintf("$%.2f", d) }
 type database map[string]dollars
 
 func (db database) list(w http.ResponseWriter, req *http.Request) {
-	for item, price := range db {
-		fmt.Fprintf(w, "%s: %s\n", item, price)
+	if err := itemList.Execute(w, db); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "error: %q\n", err)
 	}
 }
 
@@ -50,7 +68,7 @@ func (db database) create(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if _, ok := db[item]; ok {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "error: [%s] item already exists.\n", item)
 		return
 	}
@@ -93,7 +111,7 @@ func (db database) update(w http.ResponseWriter, req *http.Request) {
 		db[item] = dollars(num)
 		fmt.Fprintf(w, "update success %s: %s\n", item, db[item])
 	} else {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "no such item: %q\n", item)
 	}
 }
@@ -102,10 +120,9 @@ func (db database) delete(w http.ResponseWriter, req *http.Request) {
 	item := req.URL.Query().Get("item")
 	if _, ok := db[item]; ok {
 		delete(db, item)
-		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "delete success item: %q\n", item)
 	} else {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "no such item: %q\n", item)
 	}
 }
